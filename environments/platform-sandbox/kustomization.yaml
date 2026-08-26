@@ -1,0 +1,14 @@
+# platform-sandbox overlay: patches on top of environments/base -- resource limits,
+# chart/image version pins, replica counts. This is how a version bump
+# gets tested in one environment before being copied into the next
+# overlay (progressive rollout), without ever touching base or the
+# other environments' overlays.
+#
+# Empty for now -- pending the specific chart(s) base/ will reference.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../base
+
+patches: []
