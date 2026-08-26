@@ -1,0 +1,35 @@
+# platform-sandbox override: pins the Istio chart version for each of the
+# 3 components. This should be the *only* thing that differs from base for
+# a routine version bump -- promoting a version means copying this same
+# change into app-dev's, then app-prod's, istio.yaml, one environment at
+# a time, never editing base/istio-helm.yaml itself.
+#
+# 1.30.3 verified as the latest stable release against the live chart
+# index at write time (not the 1.31.0-rc.0 that shows as "latest" -- that's
+# a release candidate).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-base
+  namespace: argocd
+spec:
+  source:
+    targetRevision: 1.30.3
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istiod
+  namespace: argocd
+spec:
+  source:
+    targetRevision: 1.30.3
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-ingress
+  namespace: argocd
+spec:
+  source:
+    targetRevision: 1.30.3

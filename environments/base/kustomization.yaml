@@ -1,13 +1,8 @@
 # Shared standard applied to every environment: which Helm chart(s) to pull
-# and the default values common everywhere (settings you never want an
-# environment silently opting out of -- e.g. mTLS on by default for a
-# service mesh). Per-environment overlays patch this, they don't redefine it.
-#
-# Empty for now -- pending the specific chart(s) for our first platform
-# service (a service mesh). Once chosen, this will most likely use
-# Kustomize's built-in helmCharts: field to pull + render the chart inline,
-# so overlays can patch its rendered output like any other resource.
+# and the default values common everywhere. Per-environment overlays patch
+# this, they don't redefine it.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-resources: []
+resources:
+  - istio-helm.yaml
