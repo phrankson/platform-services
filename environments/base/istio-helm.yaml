@@ -1,0 +1,100 @@
+# Shared Istio Application definitions -- common to every environment.
+# Deliberately omits spec.source.targetRevision (the chart version): each
+# environment's istio.yaml patch supplies that, so a version bump only
+# ever touches one overlay at a time (progressive rollout), never this
+# file.
+#
+# The book's version is a separate HelmRepository CRD (helm-repos.yaml)
+# plus 3 HelmRelease CRDs, each referencing it via sourceRef. Argo CD's
+# Application inlines "which repo" directly into each Application's
+# source, so there's no separate repository object to define -- skip
+# helm-repos.yaml entirely.
+#
+# Ordering (istio-base's CRDs must exist before istiod; istiod must be
+# running before istio-ingress's Gateway can attach to it) is expressed
+# via Argo's sync-wave annotation instead of Flux's dependsOn.
+#
+# Chart names verified against the live repo index
+# (https://istio-release.storage.googleapis.com/charts/index.yaml):
+# base, istiod, gateway -- not "istio-ingress", which is the *name* we
+# give the third Application below, not the chart it installs.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-base
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    chart: base
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istiod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    chart: istiod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-ingress
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    chart: gateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        maxDuration: 3m
