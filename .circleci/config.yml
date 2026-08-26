@@ -1,0 +1,138 @@
+# =============================================================================
+# .circleci/config.yml — platform-services CI/CD Pipeline
+# =============================================================================
+# This repo has no container image to build and no Pulumi stack of its own --
+# it's pure GitOps config that Argo CD (installed by platform-core) watches
+# and applies on its own. So "deploy" here doesn't mean "run a deploy
+# command"; it means "commit a change, then verify Argo CD actually picked
+# it up and the result is healthy." That split maps onto two workflows:
+#
+#   - pre-merge  (any branch, every push): validate the change *before* it
+#     can reach main -- does every environment's Kustomize build still
+#     render cleanly, and does the result pass policy? Nothing here touches
+#     a real cluster.
+#   - post-merge (main only): force-reconcile Argo CD immediately instead of
+#     waiting on its normal poll/watch interval, then smoke-test the result
+#     against the real, live cluster. This is scripts/argocd_reconcile.sh.
+#
+# Only platform-sandbox has a real environment/istio.yaml patch today (see
+# that file's own comments) -- app-dev/app-prod overlays exist but aren't
+# populated yet, so the post-merge job only targets platform-sandbox for
+# now. Extending it once app-dev/app-prod get their own version patches is
+# just adding another parameterized invocation below, same shape as
+# platform-core's per-stack jobs.
+#
+# Prerequisites:
+#   - The `erikan/local_laptop_runner` self-hosted runner (same one
+#     platform-core uses) -- required because Kind clusters are local-only,
+#     not reachable from CircleCI's cloud executors.
+#   - kubectl, kind, conftest, and the argocd CLI installed on that runner.
+#   - No CircleCI context/secrets needed: reconciliation reads the target
+#     Kind cluster's kubeconfig directly off the same machine
+#     (`kind get kubeconfig`), since the runner *is* the machine hosting
+#     the clusters.
+# =============================================================================
+
+version: 2.1
+
+on-not-main: &on-not-main
+  branches:
+    ignore: /^main$/
+
+on-push-main: &on-push-main
+  branches:
+    only: /^main$/
+
+executors:
+  local-machine:
+    machine: true
+    resource_class: erikan/local_laptop_runner
+    working_directory: ~/project
+
+jobs:
+  # Pre-merge: does every environment's overlay still build, and does the
+  # result pass policy? Runs on plain Docker, no cluster access needed.
+  validate-manifests:
+    docker:
+      - image: cimg/base:2024.01
+    steps:
+      - checkout
+      - run:
+          name: Install kubectl (for `kubectl kustomize`) and conftest
+          command: |
+            curl -sSL -o kubectl "https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+            curl -sSL -o conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v0.69.0/conftest_0.69.0_Linux_x86_64.tar.gz
+            tar xzf conftest.tar.gz conftest && chmod +x conftest && sudo mv conftest /usr/local/bin/
+      - run:
+          name: Build every environment overlay
+          command: |
+            for env in platform-sandbox app-dev app-prod; do
+              echo "== $env =="
+              kubectl kustomize environments/$env > "/tmp/${env}.yaml"
+            done
+      - run:
+          # CAVEAT: this only sees the Argo Application wrapper objects
+          # this repo renders (kind: Application), not the actual Istio
+          # Deployments inside the Helm charts those Applications point
+          # at -- our deny rules guard on `input.kind == "Deployment"`,
+          # which never matches an Application CRD. So today this passes
+          # because the rules don't apply here, not because the real
+          # Deployments were checked. Meaningfully policy-checking the
+          # Istio Deployments themselves would need `helm template`-ing
+          # each chart with its real values first.
+          name: Policy check rendered manifests (Application objects only)
+          command: |
+            for env in platform-sandbox app-dev app-prod; do
+              echo "== $env =="
+              conftest test -p policy "/tmp/${env}.yaml"
+            done
+
+  # Post-merge: force Argo CD to reconcile *now* rather than waiting on its
+  # normal interval, then prove the result actually works end to end
+  # (smoke test), against the real cluster for one environment.
+  reconcile-and-smoke-test:
+    executor: local-machine
+    parameters:
+      kind_cluster_name:
+        type: string
+        description: >
+          The Kind cluster's own name, which is NOT always the same as the
+          environment folder name (platform-sandbox's cluster is named
+          pe-sandbox; app-dev/app-prod's cluster names do match their
+          environment folder).
+      smoke_host:
+        type: string
+        default: "platform-sandbox.local"
+    steps:
+      - checkout
+      - run:
+          name: Point kubectl/argocd at << parameters.kind_cluster_name >>
+          command: |
+            kind get kubeconfig --name << parameters.kind_cluster_name >> > kubeconfig.yaml
+            echo "export KUBECONFIG=$(pwd)/kubeconfig.yaml" >> "$BASH_ENV"
+      - run:
+          name: Force reconciliation and run the gateway smoke test
+          command: |
+            # argocd --core mode reads the control-plane namespace from the
+            # kubeconfig context's *default* namespace, not a flag.
+            kubectl config set-context --current --namespace=argocd
+            SMOKE_HOST=<< parameters.smoke_host >> bash scripts/argocd_reconcile.sh
+      - run:
+          name: Clean up kubeconfig
+          when: always
+          command: rm -f kubeconfig.yaml
+
+workflows:
+  pre-merge:
+    jobs:
+      - validate-manifests:
+          filters: *on-not-main
+
+  post-merge:
+    jobs:
+      - reconcile-and-smoke-test:
+          name: "Reconcile platform-sandbox"
+          kind_cluster_name: pe-sandbox
+          smoke_host: platform-sandbox.local
+          filters: *on-push-main
