@@ -1,0 +1,27 @@
+# Smoke test: pushes one request through the Istio gateway to confirm
+# routing actually works, not just that the mesh's pods exist.
+# SMOKE_HOST lets CI point this at whichever environment it's testing
+# (platform-sandbox.local, app-dev.local, ...) via an env var; defaults
+# to platform-sandbox.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-gateway
+  namespace: istio-system
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: curl
+          image: curlimages/curl:8.10.1
+          args:
+            - sh
+            - -lc
+            - |
+              set -e
+              H="${SMOKE_HOST:-platform-sandbox.local}"
+              curl -sS -H "Host: $H" --max-time 10 \
+                http://istio-ingress.istio-system.svc.cluster.local/ \
+                | head -n 3
