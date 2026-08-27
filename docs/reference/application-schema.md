@@ -61,3 +61,24 @@ cluster in this project, so what Argo CD would do with it is untested.
 Don't rely on `app-dev` or `app-prod` behaving correctly until they have
 their own populated overlay — see
 [Bump the Istio version](../how-to/bump-the-istio-version.md).
+
+## Three ways to source a workload, all in this one repo
+
+This repo now has three different `spec.source` shapes in use, each a
+legitimate pattern for a different situation:
+
+| | Istio (`istio-helm.yaml`) | `whoami-helm.yaml` | `whoami-kustomize.yaml` |
+|---|---|---|---|
+| `repoURL` | An external Helm chart repo (`istio-release.storage.googleapis.com/charts`) | This repo itself | This repo itself |
+| `chart` | `base` / `istiod` / `gateway` | *(unset)* | *(unset)* |
+| `path` | *(unset)* | `charts/whoami` | `manifests/whoami-kustomize` |
+| `helm.releaseName` | *(unset — chart name is the object name)* | `whoami-helm` | *(n/a, no Helm involved)* |
+| What Argo actually renders | Whatever `helm template` produces from a published chart version | Whatever `helm template` produces from a chart living in this repo | The Kustomize output, no templating at all |
+
+The rule of thumb: point `repoURL` + `chart` at a chart repo when you're
+installing something maintained elsewhere (a vendor's Helm chart, like
+Istio's). Point `repoURL` + `path` at this repo when the manifests — Helm
+chart or plain Kustomize — are something this project owns and versions
+itself. See
+[Deploy a sample service](../tutorials/deploy-a-sample-service.md) to see
+both of the latter two side by side, deployed and running.

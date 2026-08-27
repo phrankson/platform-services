@@ -26,7 +26,10 @@ different purpose, same repo.
 ## Start here
 
 1. [Getting started](tutorials/getting-started.md)
-2. [Bump the Istio version](how-to/bump-the-istio-version.md) — the most
+2. [Deploy a sample service](tutorials/deploy-a-sample-service.md) — a
+   hands-on walkthrough deploying the same service two ways, Helm and
+   plain Kustomize, side by side
+3. [Bump the Istio version](how-to/bump-the-istio-version.md) — the most
    common change made to this repo
-3. [Troubleshooting](how-to/troubleshooting.md) when a sync, a policy
+4. [Troubleshooting](how-to/troubleshooting.md) when a sync, a policy
    check, or the smoke test doesn't behave the way you expect
