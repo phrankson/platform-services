@@ -1,0 +1,26 @@
+# Hands-on tutorial example: an Argo Application sourced from a plain
+# Kustomize directory in this same repo (manifests/whoami-kustomize), no
+# Helm chart involved. Contrasted directly with whoami-helm.yaml, the same
+# service defined as a Helm chart.
+#
+# Scoped to platform-sandbox only -- same reasoning as whoami-helm.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: whoami-kustomize
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/phrankson/platform-services.git
+    targetRevision: main
+    path: manifests/whoami-kustomize
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-services
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -8,6 +8,8 @@ kind: Kustomization
 
 resources:
   - ../base
+  - whoami-helm.yaml
+  - whoami-kustomize.yaml
 
 patches:
   - path: istio.yaml

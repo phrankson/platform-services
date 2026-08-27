@@ -1,0 +1,10 @@
+apiVersion: v2
+name: whoami
+description: >
+  Minimal echo service. Hands-on example of a Helm chart sourced directly
+  from this repo (not an external chart registry), used to demonstrate the
+  Helm-sourced Application pattern alongside the Kustomize-sourced one in
+  manifests/whoami-kustomize.
+type: application
+version: 0.1.0
+appVersion: "v1.10.3"

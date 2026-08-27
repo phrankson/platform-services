@@ -1,0 +1,5 @@
+whoami is running as {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Try it:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }} 8080:{{ .Values.service.port }}
+  curl localhost:8080
