@@ -1,0 +1,30 @@
+# Hands-on tutorial example: an Argo Application sourced from this repo's
+# own local Helm chart (charts/whoami), rather than an external chart repo
+# like Istio's istio-release.storage.googleapis.com. Contrasted directly
+# with whoami-kustomize.yaml, the same service defined as plain manifests.
+#
+# Scoped to platform-sandbox only on purpose -- this is teaching material,
+# not a real platform service, so it isn't promoted to app-dev/app-prod
+# the way a real service eventually would be.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: whoami-helm
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/phrankson/platform-services.git
+    targetRevision: main
+    path: charts/whoami
+    helm:
+      releaseName: whoami-helm
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-services
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,11 @@
+# Hands-on tutorial example: a plain Kustomize target, no Helm chart at
+# all. Contrasted directly with charts/whoami, which is the identical
+# service defined as a Helm chart instead. See
+# environments/platform-sandbox/whoami-kustomize.yaml for the Argo
+# Application that points at this directory.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
